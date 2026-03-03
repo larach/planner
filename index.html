@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clarity — AI Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f9f7f4; --surface: #fff; --border: #e8e4de; --text: #1a1814; --muted: #9b9590;
+  --todo-accent: #2d5a3d; --todo-light: #eef4f0; --todo-border: #b8d4bf;
+  --remember-accent: #5a3a2d; --remember-light: #fdf5f0; --remember-border: #dfc5b3;
+  --followup-accent: #2d3f6b; --followup-light: #eef1f9; --followup-border: #b3bedd;
+}
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+
+/* ═══════════════════════════════════════
+   AUTH SCREEN
+═══════════════════════════════════════ */
+#authScreen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 2rem; animation: fadeIn 0.4s ease;
+}
+.auth-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 2.8rem 2.6rem; width: 100%; max-width: 380px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.06);
+  animation: fadeUp 0.4s ease;
+}
+.auth-logo { font-family: 'Fraunces', serif; font-weight: 300; font-size: 1.7rem; letter-spacing: -0.02em; margin-bottom: 0.3rem; }
+.auth-tagline { font-size: 0.74rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 2.2rem; }
+
+.auth-tabs { display: flex; gap: 0; margin-bottom: 1.8rem; border-bottom: 1px solid var(--border); }
+.auth-tab {
+  flex: 1; padding: 0.65rem; text-align: center; font-size: 0.8rem; font-weight: 500;
+  color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.auth-tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+.auth-field { margin-bottom: 1rem; }
+.auth-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; font-weight: 500; color: var(--muted); margin-bottom: 0.5rem; display: block; }
+.auth-input {
+  width: 100%; border: 1px solid var(--border); border-radius: 7px;
+  background: var(--bg); padding: 0.75rem 0.95rem;
+  font-family: 'DM Sans', sans-serif; font-size: 0.92rem; font-weight: 300;
+  color: var(--text); outline: none; transition: border-color 0.2s;
+  letter-spacing: 0.02em;
+}
+.auth-input:focus { border-color: #aaa; background: var(--surface); }
+.auth-input.error { border-color: #c0392b; animation: shake 0.35s ease; }
+
+/* PIN dots */
+.pin-wrap { display: flex; gap: 0.6rem; }
+.pin-dot-input {
+  flex: 1; text-align: center; font-size: 1.3rem; letter-spacing: 0.1em;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--bg);
+  padding: 0.65rem 0; font-family: 'DM Sans', sans-serif; font-weight: 400;
+  color: var(--text); outline: none; transition: border-color 0.2s; caret-color: transparent;
+  width: 52px;
+}
+.pin-dot-input:focus { border-color: #aaa; background: var(--surface); }
+.pin-dot-input.filled { background: var(--surface); }
+
+.auth-btn {
+  width: 100%; margin-top: 1.4rem; padding: 0.8rem;
+  background: var(--text); color: #fff; border: none; border-radius: 7px;
+  font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500;
+  cursor: pointer; transition: opacity 0.2s; letter-spacing: 0.01em;
+}
+.auth-btn:hover { opacity: 0.82; }
+.auth-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.auth-error { font-size: 0.76rem; color: #c0392b; margin-top: 0.7rem; text-align: center; min-height: 1.1rem; }
+
+.auth-users { margin-bottom: 1.5rem; }
+.auth-users-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 500; margin-bottom: 0.6rem; }
+.user-pill-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.user-pill {
+  padding: 0.3rem 0.75rem; border-radius: 99px; border: 1px solid var(--border);
+  background: var(--surface); font-size: 0.78rem; cursor: pointer; color: var(--text);
+  transition: all 0.15s;
+}
+.user-pill:hover { border-color: var(--text); }
+.user-pill.active { background: var(--text); color: #fff; border-color: var(--text); }
+
+/* ═══════════════════════════════════════
+   APP
+═══════════════════════════════════════ */
+#app { display: none; animation: fadeIn 0.3s ease; }
+
+header {
+  padding: 1.4rem 2.5rem; border-bottom: 1px solid var(--border);
+  background: var(--bg); position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-left { display: flex; align-items: baseline; gap: 0.75rem; }
+header h1 { font-family: 'Fraunces', serif; font-weight: 300; font-size: 1.4rem; letter-spacing: -0.02em; }
+header .tagline { font-size: 0.7rem; color: var(--muted); font-weight: 300; letter-spacing: 0.06em; text-transform: uppercase; }
+.header-right { display: flex; align-items: center; gap: 0.7rem; }
+
+.user-badge {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 99px;
+  padding: 0.3rem 0.75rem 0.3rem 0.55rem; font-size: 0.76rem; font-weight: 500;
+}
+.user-avatar {
+  width: 20px; height: 20px; border-radius: 50%; background: var(--text);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 600; flex-shrink: 0;
+}
+
+.tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--bg); padding: 0 2.5rem;
+}
+.tab {
+  padding: 0.8rem 1.2rem; font-size: 0.79rem; font-weight: 500; color: var(--muted);
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s; display: flex; align-items: center;
+  gap: 0.4rem; user-select: none;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--text); }
+.tab-badge { background: var(--border); color: var(--muted); font-size: 0.6rem; border-radius: 99px; padding: 0.1rem 0.42rem; font-weight: 500; }
+.tab.active .tab-badge { background: var(--text); color: #fff; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  background: var(--text); color: #fff; border: none; border-radius: 6px;
+  padding: 0.58rem 1.1rem; font-family: 'DM Sans', sans-serif;
+  font-size: 0.81rem; font-weight: 500; cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+}
+.btn:hover { opacity: 0.82; transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.btn-ghost {
+  background: transparent; color: var(--muted); border: 1px solid var(--border);
+  padding: 0.38rem 0.8rem; font-size: 0.74rem;
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--text); opacity: 1; }
+
+.spinner { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+
+#summaryBar {
+  display: none; padding: 0.75rem 2.5rem;
+  background: #f2f0ed; border-bottom: 1px solid var(--border);
+  font-size: 0.79rem; color: var(--muted); font-family: 'Fraunces', serif; font-style: italic; font-weight: 300;
+}
+
+/* ── PANELS ── */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── CAPTURE ── */
+.input-section {
+  padding: 1.5rem 2.5rem; border-bottom: 1px solid var(--border);
+  display: flex; gap: 1.3rem; align-items: flex-start;
+}
+.input-wrap { flex: 1; }
+.input-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 500; margin-bottom: 0.6rem; }
+textarea {
+  width: 100%; min-height: 84px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); padding: 0.85rem 1rem; font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem; font-weight: 300; color: var(--text); resize: vertical; outline: none;
+  line-height: 1.7; transition: border-color 0.2s;
+}
+textarea:focus { border-color: #aaa; }
+textarea::placeholder { color: var(--muted); }
+.input-hint { margin-top: 0.5rem; font-size: 0.7rem; color: var(--muted); font-style: italic; }
+.input-actions { display: flex; flex-direction: column; gap: 0.5rem; padding-top: 1.45rem; flex-shrink: 0; }
+
+.columns { display: grid; grid-template-columns: 1fr 1fr 1fr; }
+.column { padding: 1.5rem 1.6rem; border-right: 1px solid var(--border); }
+.column:last-child { border-right: none; }
+.col-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.2rem; padding-bottom: 0.85rem; }
+.col-todo .col-header { border-bottom: 2px solid var(--todo-border); }
+.col-remember .col-header { border-bottom: 2px solid var(--remember-border); }
+.col-followup .col-header { border-bottom: 2px solid var(--followup-border); }
+.col-icon { width: 25px; height: 25px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+.col-todo .col-icon { background: var(--todo-light); color: var(--todo-accent); border: 1px solid var(--todo-border); }
+.col-remember .col-icon { background: var(--remember-light); color: var(--remember-accent); border: 1px solid var(--remember-border); }
+.col-followup .col-icon { background: var(--followup-light); color: var(--followup-accent); border: 1px solid var(--followup-border); }
+.col-title { font-size: 0.72rem; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+.col-todo .col-title { color: var(--todo-accent); }
+.col-remember .col-title { color: var(--remember-accent); }
+.col-followup .col-title { color: var(--followup-accent); }
+.col-desc { font-size: 0.64rem; color: var(--muted); font-weight: 300; display: block; margin-top: 0.05rem; }
+.col-count { margin-left: auto; font-size: 0.66rem; color: var(--muted); background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 0.08rem 0.44rem; display: none; }
+
+.cards { display: flex; flex-direction: column; gap: 0.48rem; }
+.card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 7px;
+  padding: 0.72rem 0.88rem; animation: fadeUp 0.28s ease both;
+  transition: border-color 0.2s, box-shadow 0.15s;
+  display: flex; align-items: flex-start; gap: 0.6rem; cursor: pointer;
+}
+.card:hover { border-color: #ccc; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+.card.done { opacity: 0.3; }
+.card.done .card-title { text-decoration: line-through; }
+.card-checkbox {
+  width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--border);
+  flex-shrink: 0; margin-top: 3px; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.col-todo .card.done .card-checkbox { background: var(--todo-accent); border-color: var(--todo-accent); }
+.col-remember .card.done .card-checkbox { background: var(--remember-accent); border-color: var(--remember-accent); }
+.col-followup .card.done .card-checkbox { background: var(--followup-accent); border-color: var(--followup-accent); }
+.card-checkbox svg { display: none; }
+.card.done .card-checkbox svg { display: block; }
+.card-body { flex: 1; min-width: 0; }
+.card-title { font-size: 0.83rem; font-weight: 400; color: var(--text); line-height: 1.4; }
+.card-note { font-size: 0.69rem; color: var(--muted); margin-top: 0.18rem; line-height: 1.45; font-style: italic; }
+.card-meta { display: flex; align-items: center; gap: 0.38rem; margin-top: 0.35rem; flex-wrap: wrap; }
+.priority-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+.priority-dot.high { background: #c0392b; }
+.priority-dot.medium { background: #c89320; }
+.priority-dot.low { background: #bbb; }
+.card-tag { font-size: 0.59rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.card-time { font-size: 0.62rem; color: var(--muted); margin-left: auto; }
+.card-scheduled { font-size: 0.61rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.1rem 0.38rem; border-radius: 3px; background: var(--todo-light); color: var(--todo-accent); margin-left: auto; }
+.col-empty { text-align: center; padding: 2rem 0.5rem; color: var(--muted); font-size: 0.75rem; font-family: 'Fraunces', serif; font-style: italic; font-weight: 300; line-height: 1.9; opacity: 0.5; }
+
+/* ── SCHEDULE ── */
+.schedule-toolbar {
+  padding: 0.9rem 2.5rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 1rem; background: var(--bg);
+  flex-wrap: wrap;
+}
+.schedule-toolbar-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); font-weight: 500; }
+.horizon-tabs { display: flex; gap: 0.3rem; }
+.horizon-tab {
+  padding: 0.32rem 0.75rem; font-size: 0.74rem; font-weight: 500; cursor: pointer;
+  border-radius: 5px; color: var(--muted); transition: all 0.15s; border: 1px solid transparent;
+}
+.horizon-tab.active { background: var(--surface); border-color: var(--border); color: var(--text); }
+.schedule-grid { padding: 1.6rem 2.5rem; display: flex; flex-direction: column; gap: 0; }
+.day-row { display: grid; grid-template-columns: 120px 1fr; border-bottom: 1px solid var(--border); min-height: 68px; animation: fadeUp 0.25s ease both; }
+.day-row:last-child { border-bottom: none; }
+.day-label { padding: 0.9rem 1rem 0.9rem 0; display: flex; flex-direction: column; justify-content: flex-start; border-right: 1px solid var(--border); flex-shrink: 0; }
+.day-name { font-size: 0.75rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.day-date { font-size: 0.66rem; color: var(--muted); font-weight: 300; margin-top: 0.12rem; }
+.day-today .day-name { color: var(--todo-accent); }
+.day-today .day-date { color: var(--todo-accent); }
+.day-tasks { padding: 0.65rem 0 0.65rem 1.1rem; display: flex; flex-direction: column; gap: 0.38rem; }
+.sched-card {
+  display: flex; align-items: flex-start; gap: 0.55rem;
+  padding: 0.5rem 0.65rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); cursor: pointer; transition: border-color 0.15s, opacity 0.15s;
+  animation: fadeUp 0.2s ease both;
+}
+.sched-card:hover { border-color: #ccc; }
+.sched-card.done { opacity: 0.28; }
+.sched-card.done .sched-title { text-decoration: line-through; }
+.sched-check { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--border); flex-shrink: 0; margin-top: 3px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+.sched-card.done .sched-check { background: var(--todo-accent); border-color: var(--todo-accent); }
+.sched-check svg { display: none; }
+.sched-card.done .sched-check svg { display: block; }
+.sched-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.sched-dot.high { background: #c0392b; }
+.sched-dot.medium { background: #c89320; }
+.sched-dot.low { background: #bbb; }
+.sched-body { flex: 1; min-width: 0; }
+.sched-title { font-size: 0.81rem; font-weight: 400; line-height: 1.4; }
+.sched-meta { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.18rem; }
+.sched-type { font-size: 0.59rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; padding: 0.08rem 0.35rem; border-radius: 3px; }
+.sched-type.todo { background: var(--todo-light); color: var(--todo-accent); }
+.sched-type.followup { background: var(--followup-light); color: var(--followup-accent); }
+.sched-time { font-size: 0.62rem; color: var(--muted); }
+.day-empty { padding: 0.9rem 1.1rem; font-size: 0.72rem; color: var(--muted); font-style: italic; opacity: 0.5; }
+.schedule-empty-state { text-align: center; padding: 5rem 2rem; color: var(--muted); }
+.schedule-empty-state .icon { font-size: 1.8rem; opacity: 0.25; margin-bottom: 0.9rem; display: block; }
+.schedule-empty-state p { font-size: 0.83rem; font-family: 'Fraunces', serif; font-style: italic; font-weight: 300; line-height: 1.8; }
+
+/* ── FOOTER ── */
+.footer {
+  display: none; padding: 0.85rem 2.5rem;
+  border-top: 1px solid var(--border); background: var(--bg);
+  position: sticky; bottom: 0; align-items: center; gap: 1.8rem;
+}
+.progress-group { display: flex; align-items: center; gap: 0.55rem; flex: 1; }
+.progress-label-sm { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 500; white-space: nowrap; }
+.todo-lbl { color: var(--todo-accent); }
+.remember-lbl { color: var(--remember-accent); }
+.followup-lbl { color: var(--followup-accent); }
+.progress-bar-wrap { flex: 1; height: 3px; background: var(--border); border-radius: 99px; overflow: hidden; max-width: 80px; }
+.progress-bar-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+.todo-fill { background: var(--todo-accent); }
+.remember-fill { background: var(--remember-accent); }
+.followup-fill { background: var(--followup-accent); }
+.progress-count { font-size: 0.65rem; color: var(--muted); white-space: nowrap; }
+
+@media (max-width: 800px) {
+  .columns { grid-template-columns: 1fr; }
+  .column { border-right: none; border-bottom: 1px solid var(--border); }
+  .input-section { flex-direction: column; }
+  .input-actions { flex-direction: row; padding-top: 0; }
+  header, .input-section, #summaryBar, .schedule-toolbar, .schedule-grid { padding-left: 1.2rem; padding-right: 1.2rem; }
+  .tabs { padding: 0 1.2rem; }
+  .footer { padding: 0.8rem 1.2rem; gap: 0.8rem; flex-wrap: wrap; }
+  .column { padding: 1.2rem; }
+  .day-row { grid-template-columns: 80px 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     AUTH SCREEN
+═══════════════════════════════════════ -->
+<div id="authScreen">
+  <div class="auth-box">
+    <div class="auth-logo">Clarity</div>
+    <div class="auth-tagline">AI Personal Planner</div>
+
+    <div id="existingUsers" style="display:none">
+      <div class="auth-users">
+        <div class="auth-users-label">Welcome back</div>
+        <div class="user-pill-list" id="userPillList"></div>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <div class="auth-tab active" id="atab-signin" onclick="switchAuthTab('signin')">Sign in</div>
+      <div class="auth-tab" id="atab-create" onclick="switchAuthTab('create')">New account</div>
+    </div>
+
+    <!-- SIGN IN -->
+    <div id="form-signin">
+      <div class="auth-field">
+        <label class="auth-label">Your name</label>
+        <input class="auth-input" id="si-name" type="text" placeholder="e.g. Alex" autocomplete="off" />
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">4-digit PIN</label>
+        <div class="pin-wrap" id="si-pin-wrap">
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+        </div>
+      </div>
+      <div class="auth-error" id="si-error"></div>
+      <button class="auth-btn" onclick="signIn()">Sign in →</button>
+    </div>
+
+    <!-- CREATE -->
+    <div id="form-create" style="display:none">
+      <div class="auth-field">
+        <label class="auth-label">Choose a name</label>
+        <input class="auth-input" id="cr-name" type="text" placeholder="e.g. Alex" autocomplete="off" />
+      </div>
+      <div class="auth-field">
+        <label class="auth-label">Choose a 4-digit PIN</label>
+        <div class="pin-wrap" id="cr-pin-wrap">
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+          <input class="pin-dot-input" maxlength="1" inputmode="numeric" pattern="[0-9]" />
+        </div>
+      </div>
+      <div class="auth-error" id="cr-error"></div>
+      <button class="auth-btn" onclick="createAccount()">Create account →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     APP
+═══════════════════════════════════════ -->
+<div id="app">
+  <header>
+    <div class="header-left">
+      <h1>Clarity</h1>
+      <span class="tagline">AI Personal Planner</span>
+    </div>
+    <div class="header-right">
+      <div class="user-badge">
+        <div class="user-avatar" id="userAvatar"></div>
+        <span id="userNameDisplay"></span>
+      </div>
+      <button class="btn btn-ghost" id="clearBtn" onclick="clearAll()" style="display:none">Clear</button>
+      <button class="btn btn-ghost" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-capture" onclick="switchTab('capture')">
+      Capture <span class="tab-badge" id="badge-capture">0</span>
+    </div>
+    <div class="tab" id="tab-schedule" onclick="switchTab('schedule')">
+      Schedule <span class="tab-badge" id="badge-schedule">0</span>
+    </div>
+  </div>
+
+  <!-- CAPTURE -->
+  <div class="panel active" id="panel-capture">
+    <div class="input-section">
+      <div class="input-wrap">
+        <div class="input-label">Brain dump</div>
+        <textarea id="dump" placeholder="Pour it all out — don't filter…&#10;&#10;Call dentist, Sarah's birthday next week, waiting on Mike's budget reply, submit expenses by Friday, fix login bug before launch…"></textarea>
+        <p class="input-hint">Anything goes — AI sorts into To Do, Remember & Follow Up, then schedules across your week. ⌘↵ to run.</p>
+      </div>
+      <div class="input-actions">
+        <button class="btn" id="analyzeBtn" onclick="analyze()">
+          <span id="btnText">Organize →</span>
+          <span class="spinner" id="spinner"></span>
+        </button>
+      </div>
+    </div>
+
+    <div id="summaryBar"></div>
+
+    <div class="columns">
+      <div class="column col-todo">
+        <div class="col-header">
+          <div class="col-icon">✓</div>
+          <div><span class="col-title">To Do</span><span class="col-desc">Actions to take</span></div>
+          <span class="col-count" id="count-todo"></span>
+        </div>
+        <div class="cards" id="cards-todo"><div class="col-empty">Concrete tasks &<br>action items appear here.</div></div>
+      </div>
+      <div class="column col-remember">
+        <div class="col-header">
+          <div class="col-icon">◈</div>
+          <div><span class="col-title">Remember</span><span class="col-desc">Keep in mind</span></div>
+          <span class="col-count" id="count-remember"></span>
+        </div>
+        <div class="cards" id="cards-remember"><div class="col-empty">Dates, context &<br>things not to forget.</div></div>
+      </div>
+      <div class="column col-followup">
+        <div class="col-header">
+          <div class="col-icon">↺</div>
+          <div><span class="col-title">Follow Up</span><span class="col-desc">Waiting & pending</span></div>
+          <span class="col-count" id="count-followup"></span>
+        </div>
+        <div class="cards" id="cards-followup"><div class="col-empty">Replies awaited,<br>items to check back on.</div></div>
+      </div>
+    </div>
+
+    <div class="footer" id="footer">
+      <div class="progress-group">
+        <span class="progress-label-sm todo-lbl">To Do</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill todo-fill" id="fill-todo" style="width:0%"></div></div>
+        <span class="progress-count" id="prog-todo">—</span>
+      </div>
+      <div class="progress-group">
+        <span class="progress-label-sm remember-lbl">Remember</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill remember-fill" id="fill-remember" style="width:0%"></div></div>
+        <span class="progress-count" id="prog-remember">—</span>
+      </div>
+      <div class="progress-group">
+        <span class="progress-label-sm followup-lbl">Follow Up</span>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill followup-fill" id="fill-followup" style="width:0%"></div></div>
+        <span class="progress-count" id="prog-followup">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="panel" id="panel-schedule">
+    <div class="schedule-toolbar">
+      <span class="schedule-toolbar-label">View</span>
+      <div class="horizon-tabs">
+        <div class="horizon-tab active" onclick="setHorizon('week')" id="ht-week">This week</div>
+        <div class="horizon-tab" onclick="setHorizon('twoweek')" id="ht-twoweek">2 weeks</div>
+        <div class="horizon-tab" onclick="setHorizon('month')" id="ht-month">Month</div>
+      </div>
+    </div>
+    <div class="schedule-grid" id="scheduleGrid">
+      <div class="schedule-empty-state">
+        <span class="icon">◎</span>
+        <p>Dump your tasks on the Capture tab<br>and the AI will schedule them here.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════
+   AUTH
+══════════════════════════════════════ */
+var currentUser = null;
+
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('clarity_users') || '{}'); } catch(e) { return {}; }
+}
+function saveUsers(u) { localStorage.setItem('clarity_users', JSON.stringify(u)); }
+function getUserData(name) {
+  try { return JSON.parse(localStorage.getItem('clarity_data_' + name) || 'null'); } catch(e) { return null; }
+}
+function saveUserData(name, data) { localStorage.setItem('clarity_data_' + name, JSON.stringify(data)); }
+
+function hashPin(pin) {
+  // Simple hash — good enough for local offline use
+  var h = 0;
+  for (var i = 0; i < pin.length; i++) { h = (Math.imul(31, h) + pin.charCodeAt(i)) | 0; }
+  return h.toString(36);
+}
+
+function getPin(wrapId) {
+  return Array.from(document.querySelectorAll('#' + wrapId + ' .pin-dot-input')).map(i => i.value).join('');
+}
+
+function initPinInputs(wrapId) {
+  var inputs = Array.from(document.querySelectorAll('#' + wrapId + ' .pin-dot-input'));
+  inputs.forEach(function(inp, idx) {
+    inp.value = '';
+    inp.addEventListener('input', function() {
+      inp.value = inp.value.replace(/[^0-9]/g, '').slice(-1);
+      if (inp.value && idx < inputs.length - 1) inputs[idx + 1].focus();
+    });
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Backspace' && !inp.value && idx > 0) inputs[idx - 1].focus();
+    });
+    inp.addEventListener('paste', function(e) {
+      var paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+      inputs.forEach(function(inp2, i) { inp2.value = paste[i] || ''; });
+      e.preventDefault();
+    });
+  });
+}
+
+function switchAuthTab(tab) {
+  document.getElementById('atab-signin').classList.toggle('active', tab === 'signin');
+  document.getElementById('atab-create').classList.toggle('active', tab === 'create');
+  document.getElementById('form-signin').style.display = tab === 'signin' ? 'block' : 'none';
+  document.getElementById('form-create').style.display = tab === 'create' ? 'block' : 'none';
+  document.getElementById('si-error').textContent = '';
+  document.getElementById('cr-error').textContent = '';
+}
+
+function loadExistingUsers() {
+  var users = getUsers();
+  var names = Object.keys(users);
+  var wrap = document.getElementById('existingUsers');
+  var list = document.getElementById('userPillList');
+  list.innerHTML = '';
+  if (names.length) {
+    wrap.style.display = 'block';
+    names.forEach(function(name) {
+      var pill = document.createElement('div');
+      pill.className = 'user-pill';
+      pill.textContent = name;
+      pill.onclick = function() {
+        document.querySelectorAll('.user-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        document.getElementById('si-name').value = name;
+        document.querySelector('#si-pin-wrap .pin-dot-input').focus();
+        switchAuthTab('signin');
+      };
+      list.appendChild(pill);
+    });
+  }
+}
+
+function signIn() {
+  var name = document.getElementById('si-name').value.trim();
+  var pin = getPin('si-pin-wrap');
+  var errEl = document.getElementById('si-error');
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'Please enter your name.'; return; }
+  if (pin.length !== 4) { errEl.textContent = 'Enter your 4-digit PIN.'; return; }
+  var users = getUsers();
+  if (!users[name]) { errEl.textContent = 'No account found. Create one first.'; shakeInput('si-pin-wrap'); return; }
+  if (users[name] !== hashPin(pin)) { errEl.textContent = 'Incorrect PIN. Try again.'; shakeInput('si-pin-wrap'); initPinInputs('si-pin-wrap'); return; }
+  loginUser(name);
+}
+
+function createAccount() {
+  var name = document.getElementById('cr-name').value.trim();
+  var pin = getPin('cr-pin-wrap');
+  var errEl = document.getElementById('cr-error');
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'Please choose a name.'; return; }
+  if (pin.length !== 4) { errEl.textContent = 'Choose a 4-digit PIN.'; return; }
+  var users = getUsers();
+  if (users[name]) { errEl.textContent = 'That name is taken. Sign in instead.'; return; }
+  users[name] = hashPin(pin);
+  saveUsers(users);
+  loginUser(name);
+}
+
+function shakeInput(wrapId) {
+  var wrap = document.getElementById(wrapId);
+  wrap.style.animation = 'shake 0.35s ease';
+  setTimeout(function() { wrap.style.animation = ''; }, 400);
+}
+
+function loginUser(name) {
+  currentUser = name;
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('userNameDisplay').textContent = name;
+  document.getElementById('userAvatar').textContent = name.charAt(0).toUpperCase();
+  loadUserData();
+}
+
+function signOut() {
+  saveCurrentUserData();
+  currentUser = null;
+  items = { todo: [], remember: [], followup: [] };
+  schedule = [];
+  horizon = 'week';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('dump').value = '';
+  document.getElementById('btnText').textContent = 'Organize →';
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('clearBtn').style.display = 'none';
+  document.getElementById('footer').style.display = 'none';
+  initPinInputs('si-pin-wrap');
+  initPinInputs('cr-pin-wrap');
+  loadExistingUsers();
+}
+
+function loadUserData() {
+  var data = getUserData(currentUser);
+  if (data) {
+    items = data.items || { todo: [], remember: [], followup: [] };
+    schedule = data.schedule || [];
+    if (data.summary) {
+      document.getElementById('summaryBar').textContent = '✦  ' + data.summary;
+      document.getElementById('summaryBar').style.display = 'block';
+    }
+    renderAll(null);
+  }
+}
+
+function saveCurrentUserData() {
+  if (!currentUser) return;
+  var summaryText = document.getElementById('summaryBar').textContent.replace('✦  ', '');
+  saveUserData(currentUser, { items: items, schedule: schedule, summary: summaryText });
+}
+
+/* ══════════════════════════════════════
+   APP STATE
+══════════════════════════════════════ */
+var items = { todo: [], remember: [], followup: [] };
+var schedule = [];
+var horizon = 'week';
+
+var EMPTIES = {
+  todo: 'Concrete tasks &<br>action items appear here.',
+  remember: 'Dates, context &<br>things not to forget.',
+  followup: 'Replies awaited,<br>items to check back on.'
+};
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  if (tab === 'schedule') renderSchedule();
+}
+
+/* ══════════════════════════════════════
+   ANALYZE
+══════════════════════════════════════ */
+async function analyze() {
+  var text = document.getElementById('dump').value.trim();
+  if (!text) return;
+  var btn = document.getElementById('analyzeBtn');
+  var spinner = document.getElementById('spinner');
+  var btnText = document.getElementById('btnText');
+  btn.disabled = true; spinner.style.display = 'block'; btnText.textContent = 'Thinking...';
+  var todayStr = new Date().toISOString().split('T')[0];
+  try {
+    var response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514", max_tokens: 1800,
+        system: 'You are a personal productivity assistant. Today is ' + todayStr + '. Read a brain dump and classify items into todo/remember/followup. For todo and followup, assign a scheduleDate. Return ONLY valid JSON:\n{\n  "summary": "one warm encouraging sentence max 18 words",\n  "todo": [{ "title": "...", "priority": "high|medium|low", "note": "optional max 8 words", "time": "est.", "scheduleDate": "YYYY-MM-DD" }],\n  "remember": [{ "title": "...", "priority": "high|medium|low", "note": "optional max 8 words" }],\n  "followup": [{ "title": "...", "priority": "high|medium|low", "note": "optional max 8 words", "scheduleDate": "YYYY-MM-DD" }]\n}\nCategories: todo=active tasks you do, remember=passive awareness, followup=waiting on others.\nScheduling: high→today/tomorrow, medium→this week, low→next week. Max 4 items/day. Note optional. Sort by priority. Max 8 items/category.',
+        messages: [{ role: "user", content: 'Today: ' + todayStr + '\nBrain dump:\n' + text }]
+      })
+    });
+    var data = await response.json();
+    var raw = data.content.map(b => b.text || '').join('');
+    var parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    items.todo = (parsed.todo || []).map((t, i) => ({ ...t, id: 'todo-' + i, done: false }));
+    items.remember = (parsed.remember || []).map((t, i) => ({ ...t, id: 'remember-' + i, done: false }));
+    items.followup = (parsed.followup || []).map((t, i) => ({ ...t, id: 'followup-' + i, done: false }));
+    schedule = [];
+    [...items.todo, ...items.followup].forEach(item => {
+      if (item.scheduleDate) schedule.push({ itemId: item.id, day: item.scheduleDate });
+    });
+    renderAll(parsed.summary);
+    saveCurrentUserData();
+  } catch(e) {
+    console.error(e);
+    ['todo','remember','followup'].forEach(cat => {
+      document.getElementById('cards-' + cat).innerHTML = '<div class="col-empty">Something went wrong.<br>Try again.</div>';
+    });
+  }
+  btn.disabled = false; spinner.style.display = 'none'; btnText.textContent = 'Re-organize →';
+}
+
+/* ══════════════════════════════════════
+   RENDER
+══════════════════════════════════════ */
+function renderAll(summary) {
+  if (summary) {
+    var bar = document.getElementById('summaryBar');
+    bar.textContent = '✦  ' + summary;
+    bar.style.display = 'block';
+  }
+  ['todo','remember','followup'].forEach(cat => renderColumn(cat));
+  document.getElementById('clearBtn').style.display = 'inline-flex';
+  document.getElementById('footer').style.display = 'flex';
+  updateProgress(); updateBadges();
+}
+
+function renderColumn(cat) {
+  var container = document.getElementById('cards-' + cat);
+  var countEl = document.getElementById('count-' + cat);
+  var list = items[cat];
+  if (!list.length) {
+    container.innerHTML = '<div class="col-empty">Nothing here —<br>you\'re clear!</div>';
+    countEl.style.display = 'none'; return;
+  }
+  countEl.textContent = list.length; countEl.style.display = 'inline-block';
+  container.innerHTML = '';
+  list.forEach(function(item, i) {
+    var card = document.createElement('div');
+    card.className = 'card' + (item.done ? ' done' : '');
+    card.style.animationDelay = (i * 0.04) + 's';
+    card.dataset.id = item.id;
+    card.onclick = function() { toggleItem(cat, item.id); };
+    var showTime = item.time && cat === 'todo';
+    var showSched = item.scheduleDate && (cat === 'todo' || cat === 'followup');
+    card.innerHTML = '<div class="card-checkbox"><svg width="7" height="5" viewBox="0 0 7 5" fill="none"><path d="M1 2.5L2.8 4.2L6 1" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="card-body"><div class="card-title">' + item.title + '</div>' + (item.note ? '<div class="card-note">' + item.note + '</div>' : '') + '<div class="card-meta"><span class="priority-dot ' + item.priority + '"></span><span class="card-tag">' + item.priority + '</span>' + (showTime ? '<span class="card-time">' + item.time + '</span>' : '') + (showSched ? '<span class="card-scheduled">' + formatLabel(item.scheduleDate) + '</span>' : '') + '</div></div>';
+    container.appendChild(card);
+  });
+}
+
+function formatLabel(dateStr) {
+  var today = new Date(); today.setHours(0,0,0,0);
+  var d = new Date(dateStr + 'T00:00:00');
+  var diff = Math.round((d - today) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff < 0) return 'Overdue';
+  if (diff < 7) return d.toLocaleDateString('en-US', { weekday: 'short' });
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function setHorizon(h) {
+  horizon = h;
+  document.querySelectorAll('.horizon-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('ht-' + h).classList.add('active');
+  renderSchedule();
+}
+
+function renderSchedule() {
+  var grid = document.getElementById('scheduleGrid');
+  var allSched = [...items.todo, ...items.followup].filter(it => it.scheduleDate);
+  if (!allSched.length) {
+    grid.innerHTML = '<div class="schedule-empty-state"><span class="icon">◎</span><p>Dump your tasks on the Capture tab<br>and the AI will schedule them here.</p></div>';
+    return;
+  }
+  var count = horizon === 'week' ? 7 : horizon === 'twoweek' ? 14 : 30;
+  var today = new Date(); today.setHours(0,0,0,0);
+  grid.innerHTML = '';
+  for (var i = 0; i < count; i++) {
+    var d = new Date(today); d.setDate(today.getDate() + i);
+    var dateStr = d.toISOString().split('T')[0];
+    var isToday = i === 0;
+    var dayItems = allSched.filter(it => it.scheduleDate === dateStr);
+    if (horizon !== 'week' && !dayItems.length) continue;
+    var row = document.createElement('div');
+    row.className = 'day-row' + (isToday ? ' day-today' : '');
+    row.style.animationDelay = (i * 0.025) + 's';
+    var dayName = isToday ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' });
+    var dayDate = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    row.innerHTML = '<div class="day-label"><span class="day-name">' + dayName + '</span><span class="day-date">' + dayDate + '</span></div><div class="day-tasks" id="dt-' + dateStr + '"></div>';
+    grid.appendChild(row);
+    var tc = row.querySelector('#dt-' + dateStr);
+    if (!dayItems.length) {
+      tc.innerHTML = '<div class="day-empty">— clear</div>';
+    } else {
+      dayItems.forEach(function(item, j) {
+        var cat = item.id.startsWith('todo') ? 'todo' : 'followup';
+        var sc = document.createElement('div');
+        sc.className = 'sched-card' + (item.done ? ' done' : '');
+        sc.style.animationDelay = (j * 0.04) + 's';
+        sc.dataset.id = item.id;
+        sc.onclick = function() { toggleItem(cat, item.id, true); };
+        sc.innerHTML = '<div class="sched-check"><svg width="7" height="5" viewBox="0 0 7 5" fill="none"><path d="M1 2.5L2.8 4.2L6 1" stroke="white" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="sched-dot ' + item.priority + '"></div><div class="sched-body"><div class="sched-title">' + item.title + '</div><div class="sched-meta"><span class="sched-type ' + cat + '">' + (cat === 'todo' ? 'To Do' : 'Follow Up') + '</span>' + (item.time ? '<span class="sched-time">' + item.time + '</span>' : '') + '</div></div>';
+        tc.appendChild(sc);
+      });
+    }
+  }
+}
+
+function toggleItem(cat, id, fromSchedule) {
+  items[cat] = items[cat].map(t => t.id === id ? { ...t, done: !t.done } : t);
+  var isDone = items[cat].find(t => t.id === id).done;
+  var card = document.querySelector('#cards-' + cat + ' [data-id="' + id + '"]');
+  if (card) card.className = 'card' + (isDone ? ' done' : '');
+  var scard = document.querySelector('#panel-schedule [data-id="' + id + '"]');
+  if (scard) scard.className = 'sched-card' + (isDone ? ' done' : '');
+  updateProgress(); updateBadges(); saveCurrentUserData();
+}
+
+function updateProgress() {
+  ['todo','remember','followup'].forEach(function(cat) {
+    var done = items[cat].filter(t => t.done).length;
+    var total = items[cat].length;
+    document.getElementById('fill-' + cat).style.width = total ? Math.round(done/total*100) + '%' : '0%';
+    document.getElementById('prog-' + cat).textContent = total ? done + '/' + total : '—';
+  });
+}
+
+function updateBadges() {
+  var total = items.todo.length + items.remember.length + items.followup.length;
+  var sched = [...items.todo, ...items.followup].filter(i => i.scheduleDate).length;
+  document.getElementById('badge-capture').textContent = total;
+  document.getElementById('badge-schedule').textContent = sched;
+}
+
+function clearAll() {
+  items = { todo: [], remember: [], followup: [] };
+  schedule = [];
+  ['todo','remember','followup'].forEach(function(cat) {
+    document.getElementById('cards-' + cat).innerHTML = '<div class="col-empty">' + EMPTIES[cat] + '</div>';
+    document.getElementById('count-' + cat).style.display = 'none';
+    document.getElementById('fill-' + cat).style.width = '0%';
+    document.getElementById('prog-' + cat).textContent = '—';
+  });
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('clearBtn').style.display = 'none';
+  document.getElementById('footer').style.display = 'none';
+  document.getElementById('dump').value = '';
+  document.getElementById('btnText').textContent = 'Organize →';
+  document.getElementById('badge-capture').textContent = '0';
+  document.getElementById('badge-schedule').textContent = '0';
+  document.getElementById('scheduleGrid').innerHTML = '<div class="schedule-empty-state"><span class="icon">◎</span><p>Dump your tasks on the Capture tab<br>and the AI will schedule them here.</p></div>';
+  saveCurrentUserData();
+}
+
+/* ══════════════════════════════════════
+   INIT
+══════════════════════════════════════ */
+initPinInputs('si-pin-wrap');
+initPinInputs('cr-pin-wrap');
+loadExistingUsers();
+
+document.getElementById('dump').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) analyze();
+});
+</script>
+</body>
+</html>
